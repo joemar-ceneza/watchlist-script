@@ -7,41 +7,31 @@ USERNAMES_FILE = "usernames.txt"
 LEO_USERNAME = "tomsmith"
 LEO_PASSWORD = "SuperSecretPassword!"
 
-LEO_STORAGE = "leo_storage.json"
-
 # --- Step 1: Read usernames from Notepad ---
 with open(USERNAMES_FILE, "r") as f:
     usernames = [line.strip() for line in f if line.strip()]
 
 print(f"Usernames loaded: {usernames}")
 
-# --- Step 2: Login to LEO ---
+# --- Step 2: Login to LEO manually ---
 with sync_playwright() as p:
-    # Launch browser
-    browser = p.chromium.launch(headless=False)
+    browser = p.chromium.launch(headless=False)  # Open Chrome
 
-    try:
-        leo_context = browser.new_context(storage_state=LEO_STORAGE)
-        print("LEO session loaded from storage.")
-    except:
-        leo_context = browser.new_context()
-        print("No valid storage found, will login manually.")
+    context = browser.new_context()
+    page = context.new_page()
 
-    leo_page = leo_context.new_page()
-    leo_page.goto(LEO_LOGIN_URL)
+    # Go to login page
+    page.goto(LEO_LOGIN_URL)
 
-    # Check if login is required
-    if "login" in leo_page.url:
-        print("Logging in manually...")
-        leo_page.fill("#username", LEO_USERNAME)
-        leo_page.fill("#password", LEO_PASSWORD)
-        leo_page.click(".radius")
-        leo_page.wait_for_load_state("networkidle")
-        # Save storage for next run
-        leo_context.storage_state(path=LEO_STORAGE)
-        print("LEO login saved for future sessions.")
-    else:
-        print("Already logged in!")
+    # Fill login form and submit
+    print("Logging in manually...")
+    page.fill("#username", LEO_USERNAME)
+    page.fill("#password", LEO_PASSWORD)
+    page.click(".radius")
+    page.wait_for_load_state("networkidle")
 
+    print("Login completed!")
+
+    # Keep browser open to interact
     input("Press Enter to close browser...")
     browser.close()
