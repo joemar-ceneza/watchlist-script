@@ -39,12 +39,6 @@ with sync_playwright() as p:
     leo_page.wait_for_selector("frame[name='menu']")
     menu_frame = leo_page.frame(name="menu")
 
-    # leo_page.wait_for_selector("frame[name='itop']")
-    # itop_frame = leo_page.frame(name="itop")
-
-    # leo_page.wait_for_selector("frame[name='icontents']")
-    # icontents_frame = leo_page.frame(name="icontents")
-
     if not menu_frame:
         print("Login may have failed")
         browser.close()
@@ -57,7 +51,7 @@ with sync_playwright() as p:
         print(f"\nSearching Player: {username}")
 
         try:
-            # Search Player
+            # --- Search Player ---
             menu_frame.fill("#T1", "")
             menu_frame.fill("#T1", username)
             menu_frame.click(".Button")
@@ -128,29 +122,6 @@ with sync_playwright() as p:
             print("Error for player:", username)
             print("Reason:", e)
             continue
-
-        # --- Step 5: Open watchlist website ---
-        # watchlist_page = context.new_page()
-        # watchlist_page.goto(WATCHLIST_LOGIN_URL)
-
-        # Fill login form and submit
-        # print("Logging in manually...")
-        # watchlist_page.fill("#username", WATCHLIST_USERNAME)
-        # watchlist_page.fill("#password", WATCHLIST_PASSWORD)
-        # watchlist_page.click("#btn-login")
-        # watchlist_page.wait_for_load_state("networkidle")
-
-        # --- Step 6: Fill scraped data ---
-        # watchlist_page.fill("#currency")
-        # watchlist_page.fill("#agent")
-        # watchlist_page.fill("#ma")
-        # watchlist_page.fill("#sma")
-
-        # watchlist_page.click("#submitBtn")
-
-        # print("Data submitted to second website")
-
-        # watchlist_page.close
 
     # Keep browser open to interact
     input("Press Enter to close browser...")
