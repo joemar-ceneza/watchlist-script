@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-import time
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
@@ -22,7 +21,7 @@ print(f"Usernames loaded: {usernames}")
 
 # --- Step 2: Login to LEO manually ---
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)  # Open Chrome
+    browser = p.chromium.launch(headless=False)
 
     context = browser.new_context()
     leo_page = context.new_page()
@@ -39,57 +38,95 @@ with sync_playwright() as p:
 
     leo_page.wait_for_selector("frame[name='menu']")
     menu_frame = leo_page.frame(name="menu")
-    contents_frame = leo_page.frame(name="contents")
-    itop_frame = leo_page.frame(name="itop")
-    icontents_frame = leo_page.frame(name="icontents")
+
+    # leo_page.wait_for_selector("frame[name='itop']")
+    # itop_frame = leo_page.frame(name="itop")
+
+    # leo_page.wait_for_selector("frame[name='icontents']")
+    # icontents_frame = leo_page.frame(name="icontents")
 
     if not menu_frame:
-        print("Frame not found — login may have failed")
+        print("Login may have failed")
         browser.close()
         exit()
 
-    print("Frame loaded — login successful!")
+    print("Login successful!")
 
     # --- Step 3: Loop through Players ---
     for username in usernames:
         print(f"\nSearching Player: {username}")
 
-        # Search Player
-        menu_frame.fill("#T1", "")
-        menu_frame.fill("#T1", username)
-        menu_frame.click(".Button")
-
-        menu_frame.wait_for_timeout(1500)
-
-        # --- Step 4: Scrape Data ---
         try:
-            raw_text = contents_frame.locator(
+            # Search Player
+            menu_frame.fill("#T1", "")
+            menu_frame.fill("#T1", username)
+            menu_frame.click(".Button")
+
+            menu_frame.wait_for_timeout(1500)
+
+            # --- Step 4: Scrape Data ---
+            raw_text = menu_frame.locator(
                 "//tr[th[contains(text(),'Outstanding Txn')]]/td/span"
             ).inner_text()
             text_only = raw_text.split()[0]
-            print("Outstanding Txn Type:", text_only)
+            print("Currency:", text_only)
 
+            # --- Scrape SMA / MASTER / AGENT ---
             sma = menu_frame.locator(
                 "//tr[th[contains(text(),'SMA')]]/td/a"
             ).inner_text()
-            print("SMA:", sma)
             master = menu_frame.locator(
                 "//tr[th[contains(text(),'Master')]]/td/a"
             ).inner_text()
-            print("Master:", master)
             agent = menu_frame.locator(
                 "//tr[th[contains(text(),'Agent')]]/td/a"
             ).inner_text()
+
+            print("SMA:", sma)
+            print("Master:", master)
             print("Agent:", agent)
 
+            # --- Click Detail ---
             menu_frame.click("#detail")
-            itop_frame.click("#Setting")
-            icontents_frame.click(".PSelectedLC")
-            ma_comm = icontents_frame.locator("#LCTextMaComm").input_value()
-            print("MA Commission", ma_comm)
 
-        except:
-            print("Player not found or data missing")
+            # --- Get contents frame ---
+            leo_page.wait_for_selector("frame[name='contents']")
+            contents_frame = leo_page.frame(name="contents")
+
+            # --- Get itop frame ---
+            itop_frame = None
+            for frame in contents_frame.child_frames:
+                if frame.name == "itop":
+                    itop_frame = frame
+
+            if not itop_frame:
+                print("itop frame missing")
+                continue
+
+            # --- Click setting ---
+            itop_frame.wait_for_selector("#Setting")
+            itop_frame.click("#Setting", force=True)
+
+            # --- Get icontents frame ---
+            icontents_frame = None
+            for frame in contents_frame.child_frames:
+                if frame.name == "icontents":
+                    icontents_frame = frame
+
+            if not icontents_frame:
+                print("icontents frame missing")
+                continue
+
+            # --- Open commision Tab ---
+            icontents_frame.click(".PSelectedLC")
+
+            # --- Get MA commission ---
+            ma_comm = icontents_frame.locator("#LCTextMaComm").input_value()
+            print("MA Commission:", ma_comm)
+
+        except Exception as e:
+            print("Error for player:", username)
+            print("Reason:", e)
             continue
 
         # --- Step 5: Open watchlist website ---
