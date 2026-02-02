@@ -3,16 +3,16 @@ import time
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
-WATCHLIST_LOGIN_URL = "http://insiderinew.leekie.com/login"
+# WATCHLIST_LOGIN_URL = "http://insiderinew.leekie.com/login"
 USERNAMES_FILE = "usernames.txt"
 
 # Leo credentials
-LEO_USERNAME = input("Username: ")
-LEO_PASSWORD = input("Password: ")
+LEO_USERNAME = input("LEO Username: ")
+LEO_PASSWORD = input("LEO Password: ")
 
 # Watchlist credentials
-WATCHLIST_USERNAME = input("Username: ")
-WATCHLIST_PASSWORD = input("Password: ")
+# WATCHLIST_USERNAME = input("Watchlist Username: ")
+# WATCHLIST_PASSWORD = input("Watchlist Password: ")
 
 # --- Step 1: Read usernames from Notepad ---
 with open(USERNAMES_FILE, "r") as f:
@@ -96,14 +96,14 @@ with sync_playwright() as p:
         # watchlist_page = context.new_page()
         # watchlist_page.goto(WATCHLIST_LOGIN_URL)
 
-        # # Fill login form and submit
+        # Fill login form and submit
         # print("Logging in manually...")
         # watchlist_page.fill("#username", WATCHLIST_USERNAME)
         # watchlist_page.fill("#password", WATCHLIST_PASSWORD)
         # watchlist_page.click("#btn-login")
         # watchlist_page.wait_for_load_state("networkidle")
 
-        # # --- Step 6: Fill scraped data ---
+        # --- Step 6: Fill scraped data ---
         # watchlist_page.fill("#currency")
         # watchlist_page.fill("#agent")
         # watchlist_page.fill("#ma")
