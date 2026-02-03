@@ -1,8 +1,10 @@
 from playwright.sync_api import sync_playwright
+import csv
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
 USERNAMES_FILE = "usernames.txt"
+OUTPUT_CSV = "leo_results.csv"
 
 # Leo credentials
 LEO_USERNAME = input("LEO Username: ")
@@ -18,6 +20,23 @@ def get_frame(page, name, retries=20):
         page.wait_for_timeout(300)
     return None
 
+
+# --- Prepare CSV storage ---
+rows = []
+headers = [
+    "Username",
+    "Currency",
+    "SMA",
+    "Master",
+    "Agent",
+    "Agent Position Taking",
+    "MA Position Taking",
+    "SMA Position Taking",
+    "Player Commission",
+    "Agent Commission",
+    "MA Commission",
+    "SMA Commission",
+]
 
 # --- Step 1: Read usernames ---
 with open(USERNAMES_FILE, "r") as f:
@@ -76,8 +95,8 @@ with sync_playwright() as p:
             raw_text = contents_frame.locator(
                 "//tr[th[contains(text(),'Outstanding Txn')]]/td/span"
             ).inner_text()
-            text_only = raw_text.split()[0]
-            print("Currency:", text_only)
+            currency = raw_text.split()[0]
+            print("Currency:", currency)
 
             # --- SMA / MASTER / AGENT ---
             sma = menu_frame.locator(
@@ -147,10 +166,39 @@ with sync_playwright() as p:
             print("MA Position Taking:", ma_pt)
             print("Agent Position Taking:", agent_pt)
 
+            # --- Save row ---
+            rows.append(
+                [
+                    username,
+                    currency,
+                    sma,
+                    master,
+                    agent,
+                    agent_pt,
+                    ma_pt,
+                    sma_pt,
+                    player_comm,
+                    agent_comm,
+                    ma_comm,
+                    sma_comm,
+                ]
+            )
+
         except Exception as e:
             print("Error for player:", username)
             print("Reason:", e)
+
+            # Save error row
+            rows.append([username, "ERROR"] + [""] * (len(headers) - 2))
             continue
+
+    # --- Write CSV ---
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+    print(f"\nCSV saved as: {OUTPUT_CSV}")
 
     input("Press Enter to close browser...")
     browser.close()
