@@ -10,6 +10,9 @@ OUTPUT_CSV = "leo_results.csv"
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
 
+# Normalize currency codes
+currency_map = {"Pp": "IDR", "TB": "THB"}
+
 
 # --- Helper: Safely get frame even after reload ---
 def get_frame(page, name, retries=20):
@@ -96,6 +99,7 @@ with sync_playwright() as p:
                 "//tr[th[contains(text(),'Outstanding Txn')]]/td/span"
             ).inner_text()
             currency = raw_text.split()[0]
+            currency = currency_map.get(currency, currency)
             print("Currency:", currency)
 
             # --- SMA / MASTER / AGENT ---
