@@ -1,14 +1,21 @@
 from playwright.sync_api import sync_playwright
 import csv
+from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
+WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
 USERNAMES_FILE = "usernames.txt"
 OUTPUT_CSV = "leo_results.csv"
 
 # Leo credentials
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
+
+# Watchlist credentials
+WATCHLIST_USERNAME = "joemar"
+WATCHLIST_PASSWORD = "asdf1234*"
 
 # Normalize currency codes
 currency_map = {"Pp": "IDR", "TB": "THB"}
@@ -41,25 +48,29 @@ headers = [
     "SMA Commission",
 ]
 
+# Get yesterday's date
+yesterday = datetime.today() - timedelta(days=1)
+# Format: "2 Feb, 2026"
+formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
+# URL-encode it (spaces + comma)
+encoded_date = quote_plus(formatted_date)
+
 # --- Step 1: Read usernames ---
 with open(USERNAMES_FILE, "r") as f:
     usernames = [line.strip() for line in f if line.strip()]
-
-print(f"Usernames loaded: {usernames}")
 
 # --- Step 2: Login ---
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
     context = browser.new_context()
+
+    # Log in LEO
     leo_page = context.new_page()
-
     leo_page.goto(LEO_LOGIN_URL)
-
     print("Logging in manually...")
     leo_page.fill("#txtUsername", LEO_USERNAME)
     leo_page.fill("#txtPassword", LEO_PASSWORD)
     leo_page.click("#btnLogin")
-
     leo_page.wait_for_load_state("networkidle")
 
     # Get menu frame safely
@@ -71,6 +82,17 @@ with sync_playwright() as p:
         exit()
 
     print("Login successful!")
+
+    # Log in Watchlist
+    watchlist_page = context.new_page()
+    watchlist_page.goto(WATCHLIST_LOGIN_URL)
+    print("Logging in manually...")
+    watchlist_page.fill("#username", WATCHLIST_USERNAME)
+    watchlist_page.fill("#password", WATCHLIST_PASSWORD)
+    watchlist_page.click("#btn-login")
+    watchlist_page.wait_for_load_state("networkidle")
+    print("Watchlist login successful!")
+    watchlist_page.wait_for_timeout(3000)
 
     # --- Step 3: Loop Players ---
     for username in usernames:
@@ -187,6 +209,48 @@ with sync_playwright() as p:
                     sma_comm,
                 ]
             )
+
+            watchlist_page.goto(
+                f"http://insiderinew.octagonexpress.co/getsearchplayerWatchlistSGD2"
+                f"?business_type=B2B&date={encoded_date}"
+            )
+
+            watchlist_page.wait_for_selector("tr.border-b")
+
+            watchlist_page.locator(
+                f"tr:has(td:has-text('{username}')) a:has-text('Edit')"
+            ).click()
+
+            # Currency
+            watchlist_page.locator("select[name='currency']").select_option(
+                value=currency
+            )
+
+            watchlist_page.fill("#agent", agent)
+            watchlist_page.fill("#ma", master)
+            watchlist_page.fill("#sma", sma)
+
+            watchlist_page.fill("#current_comm", "0")
+            watchlist_page.fill("#last_seven_comm", "0")
+
+            # Player Taking Percentage
+            watchlist_page.locator("input[name='pt[player]']").fill("0")
+            watchlist_page.locator("input[name='pt[agent]']").fill(agent_pt)
+            watchlist_page.locator("input[name='pt[ma]']").fill(ma_pt)
+            watchlist_page.locator("input[name='pt[sma]']").fill(sma_pt)
+
+            # Players Commission
+            watchlist_page.locator("input[name='comm[player]']").fill(player_comm)
+            watchlist_page.locator("input[name='comm[agent]']").fill(agent_comm)
+            watchlist_page.locator("input[name='comm[ma]']").fill(ma_comm)
+            watchlist_page.locator("input[name='comm[sma]']").fill(sma_comm)
+
+            # Conclusion
+            watchlist_page.fill("#remarks", "None")
+            watchlist_page.fill("#crm_log", "None")
+
+            # Update
+            watchlist_page.locator("button:has-text('Update Record')").click()
 
         except Exception as e:
             print("Error for player:", username)
