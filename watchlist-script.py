@@ -6,33 +6,21 @@ from urllib.parse import quote_plus
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
 WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
+
 USERNAMES_FILE = "usernames.txt"
 OUTPUT_CSV = "leo_results.csv"
 
-# Leo credentials
+# --- Leo credentials ---
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
 
-# Watchlist credentials
-WATCHLIST_USERNAME = "joemar"
-WATCHLIST_PASSWORD = "asdf1234*"
+# --- Watchlist credentials ---
+WATCHLIST_USERNAME = input("WATCHLIST Username: ")
+WATCHLIST_PASSWORD = input("WATCHLIST Password: ")
 
-# Normalize currency codes
+# --- Normalize currency codes ---
 currency_map = {"Pp": "IDR", "TB": "THB"}
 
-
-# --- Helper: Safely get frame even after reload ---
-def get_frame(page, name, retries=20):
-    for _ in range(retries):
-        for frame in page.frames:
-            if frame.name == name:
-                return frame
-        page.wait_for_timeout(300)
-    return None
-
-
-# --- Prepare CSV storage ---
-rows = []
 headers = [
     "Username",
     "Currency",
@@ -48,12 +36,23 @@ headers = [
     "SMA Commission",
 ]
 
-# Get yesterday's date
+# --- Date format ---
 yesterday = datetime.today() - timedelta(days=1)
-# Format: "2 Feb, 2026"
 formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
-# URL-encode it (spaces + comma)
 encoded_date = quote_plus(formatted_date)
+
+
+# --- Helper: Safely get frame even after reload ---
+def get_frame(page, name, retries=20):
+    for _ in range(retries):
+        for frame in page.frames:
+            if frame.name == name:
+                return frame
+        page.wait_for_timeout(300)
+    return None
+
+
+rows = []
 
 # --- Step 1: Read usernames ---
 with open(USERNAMES_FILE, "r") as f:
@@ -64,16 +63,17 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
     context = browser.new_context()
 
-    # Log in LEO
+    # --- Log in LEO ---
     leo_page = context.new_page()
     leo_page.goto(LEO_LOGIN_URL)
-    print("Logging in manually...")
+
     leo_page.fill("#txtUsername", LEO_USERNAME)
     leo_page.fill("#txtPassword", LEO_PASSWORD)
     leo_page.click("#btnLogin")
+
     leo_page.wait_for_load_state("networkidle")
 
-    # Get menu frame safely
+    # --- Get menu frame safely ---
     menu_frame = get_frame(leo_page, "menu")
 
     if not menu_frame:
@@ -81,29 +81,28 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
-    print("Login successful!")
+    print("Leo Website Login successful!")
 
-    # Log in Watchlist
+    # --- Log in Watchlist ---
     watchlist_page = context.new_page()
     watchlist_page.goto(WATCHLIST_LOGIN_URL)
-    print("Logging in manually...")
+
     watchlist_page.fill("#username", WATCHLIST_USERNAME)
     watchlist_page.fill("#password", WATCHLIST_PASSWORD)
     watchlist_page.click("#btn-login")
+
     watchlist_page.wait_for_load_state("networkidle")
-    print("Watchlist login successful!")
-    watchlist_page.wait_for_timeout(3000)
+    print("Watchlist Website Login successful!")
 
     # --- Step 3: Loop Players ---
     for username in usernames:
         print(f"\nSearching Player: {username}")
 
         try:
-            # Refresh menu frame every loop
+            # --- Refresh menu frame every loop ---
             menu_frame = get_frame(leo_page, "menu")
 
             # --- Search Player ---
-            menu_frame.fill("#T1", "")
             menu_frame.fill("#T1", username)
             menu_frame.click(".Button")
 
@@ -116,13 +115,12 @@ with sync_playwright() as p:
                 print("contents frame missing")
                 continue
 
-            # --- Scrape Outstanding Txn ---
+            # --- Currency ---
             raw_text = contents_frame.locator(
                 "//tr[th[contains(text(),'Outstanding Txn')]]/td/span"
             ).inner_text()
             currency = raw_text.split()[0]
             currency = currency_map.get(currency, currency)
-            print("Currency:", currency)
 
             # --- SMA / MASTER / AGENT ---
             sma = menu_frame.locator(
@@ -134,10 +132,6 @@ with sync_playwright() as p:
             agent = menu_frame.locator(
                 "//tr[th[contains(text(),'Agent')]]/td/a"
             ).inner_text()
-
-            print("SMA:", sma)
-            print("Master:", master)
-            print("Agent:", agent)
 
             # --- Click Detail ---
             menu_frame.click("#detail")
@@ -176,11 +170,6 @@ with sync_playwright() as p:
             agent_comm = icontents_frame.locator("#LCTextAgtComm").input_value()
             player_comm = icontents_frame.locator("#LCTextPlayerComm").input_value()
 
-            print("SMA Commission:", sma_comm)
-            print("MA Commission:", ma_comm)
-            print("AGENT Commission:", agent_comm)
-            print("PLAYER Commission:", player_comm)
-
             # --- Get Position Taking ---
             sma_pt = icontents_frame.locator("#LC1_SMA").input_value()
             ma_pt = icontents_frame.locator("#LC1_MA").input_value()
@@ -188,10 +177,7 @@ with sync_playwright() as p:
                 "#LC1AgtPT option:checked"
             ).get_attribute("value")
 
-            print("SMA Position Taking:", sma_pt)
-            print("MA Position Taking:", ma_pt)
-            print("Agent Position Taking:", agent_pt)
-
+            print(f"Successfully scraped data for username: {username}")
             # --- Save row ---
             rows.append(
                 [
@@ -210,6 +196,7 @@ with sync_playwright() as p:
                 ]
             )
 
+            # --- Step 4: Watchlist Update ---
             watchlist_page.goto(
                 f"http://insiderinew.octagonexpress.co/getsearchplayerWatchlistSGD2"
                 f"?business_type=B2B&date={encoded_date}"
@@ -217,19 +204,27 @@ with sync_playwright() as p:
 
             watchlist_page.wait_for_selector("tr.border-b")
 
-            watchlist_page.locator(
+            # --- Find Edit and Click ---
+            edit_btn = watchlist_page.locator(
                 f"tr:has(td:has-text('{username}')) a:has-text('Edit')"
-            ).click()
+            )
+            if edit_btn.count() == 0:
+                print(f"Player not found in Watchlist: {username}")
+                continue
+            edit_btn.click()
 
+            # --- Fill the form ---
             # Currency
             watchlist_page.locator("select[name='currency']").select_option(
                 value=currency
             )
 
+            # AGENT/MASTER/SMA
             watchlist_page.fill("#agent", agent)
             watchlist_page.fill("#ma", master)
             watchlist_page.fill("#sma", sma)
 
+            # Total Commission
             watchlist_page.fill("#current_comm", "0")
             watchlist_page.fill("#last_seven_comm", "0")
 
@@ -249,18 +244,16 @@ with sync_playwright() as p:
             watchlist_page.fill("#remarks", "None")
             watchlist_page.fill("#crm_log", "None")
 
-            # Update
+            # Step 5: Update the record
             watchlist_page.locator("button:has-text('Update Record')").click()
 
+            print(f"Watchlist updated for {username}")
+
         except Exception as e:
-            print("Error for player:", username)
-            print("Reason:", e)
-
-            # Save error row
+            print("Error for {username}:", e)
             rows.append([username, "ERROR"] + [""] * (len(headers) - 2))
-            continue
 
-    # --- Write CSV ---
+    # --- Save CSV ---
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(headers)
