@@ -12,7 +12,7 @@ OUTPUT_CSV = "leo_results.csv"
 
 # --- B2B OR B2C ---
 while True:
-    B2B_B2C = input("Enter business type (B2B or B2C): ").strip().upper
+    B2B_B2C = input("Enter business type (B2B or B2C): ").strip().upper()
     if B2B_B2C in ["B2B", "B2C"]:
         break
     print("Invalid input. Please enter only B2B or B2C.")
