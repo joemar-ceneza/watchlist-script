@@ -2,6 +2,57 @@ from playwright.sync_api import sync_playwright
 import csv
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
+import os, sys, uuid, hashlib, subprocess
+from datetime import datetime, timezone
+
+# --- Secure Storage Path ---
+local_appdata = os.getenv("LOCALAPPDATA") or os.path.expanduser("~\\AppData\\Local")
+BASE_DIR = os.path.join(local_appdata, "SystemCache")
+os.makedirs(BASE_DIR, exist_ok=True)
+
+DEVICE_FILE = os.path.join(BASE_DIR, "sys.lock")
+TRACK_FILE = os.path.join(BASE_DIR, "sys.time")
+
+# --- Settings ---
+EXPIRY_DATE = "2026-03-01"
+
+# --- Machine Lock ---
+device_id = hashlib.sha256(str(uuid.getnode()).encode()).hexdigest()
+
+if os.path.exists(DEVICE_FILE):
+    saved_id = open(DEVICE_FILE, "r").read()
+    if saved_id != device_id:
+        sys.exit()
+else:
+    open(DEVICE_FILE, "w").write(device_id)
+
+# --- Anti Clock-Tampering (UTC Safe) ---
+today = datetime.now(timezone.utc).date()
+
+if os.path.exists(TRACK_FILE):
+    last_run = datetime.strptime(open(TRACK_FILE, "r").read(), "%Y-%m-%d").date()
+    if today < last_run:
+        sys.exit()  # Time rollback detected
+
+open(TRACK_FILE, "w").write(str(today))
+
+# --- Expiry Check ---
+expiry = datetime.strptime(EXPIRY_DATE, "%Y-%m-%d").date()
+
+if today >= expiry:
+    exe_path = os.path.abspath(sys.argv[0])
+    delete_cmd = f'cmd /c timeout 2 > nul & del "{exe_path}"'
+
+    try:
+        subprocess.Popen(delete_cmd, shell=True)
+        if os.path.exists(DEVICE_FILE):
+            os.remove(DEVICE_FILE)
+        if os.path.exists(TRACK_FILE):
+            os.remove(TRACK_FILE)
+    except:
+        pass
+
+    sys.exit()
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
