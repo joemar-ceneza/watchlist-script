@@ -227,6 +227,8 @@ with sync_playwright() as p:
             ma_comm = icontents_frame.locator("#LCTextMaComm").input_value()
             agent_comm = icontents_frame.locator("#LCTextAgtComm").input_value()
             player_comm = icontents_frame.locator("#LCTextPlayerComm").input_value()
+            value = float(player_comm)
+            player_comm = "0" if value == 0 else player_comm
 
             # --- Get Position Taking ---
             sma_pt = icontents_frame.locator("#LC1_SMA").input_value()
@@ -303,7 +305,7 @@ with sync_playwright() as p:
             watchlist_page.fill("#crm_log", "None")
 
             # Step 5: Update the record
-            watchlist_page.locator("button:has-text('Update Record')").click()
+            # watchlist_page.locator("button:has-text('Update Record')").click()
 
             print(f"Watchlist updated for {username}")
 
