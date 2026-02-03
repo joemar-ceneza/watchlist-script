@@ -10,6 +10,13 @@ WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
 USERNAMES_FILE = "usernames.txt"
 OUTPUT_CSV = "leo_results.csv"
 
+# --- B2B OR B2C ---
+while True:
+    B2B_B2C = input("Enter business type (B2B or B2C): ").strip().upper
+    if B2B_B2C in ["B2B", "B2C"]:
+        break
+    print("Invalid input. Please enter only B2B or B2C.")
+
 # --- Leo credentials ---
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
@@ -197,11 +204,11 @@ with sync_playwright() as p:
             )
 
             # --- Step 4: Watchlist Update ---
-            watchlist_page.goto(
+            watchlist_url = (
                 f"http://insiderinew.octagonexpress.co/getsearchplayerWatchlistSGD2"
-                f"?business_type=B2B&date={encoded_date}"
+                f"?business_type={B2B_B2C}&date={encoded_date}"
             )
-
+            watchlist_page.goto(watchlist_url)
             watchlist_page.wait_for_selector("tr.border-b")
 
             # --- Find Edit and Click ---
