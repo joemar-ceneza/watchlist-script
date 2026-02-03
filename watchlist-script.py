@@ -2,42 +2,46 @@ from playwright.sync_api import sync_playwright
 
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
-# WATCHLIST_LOGIN_URL = "http://insiderinew.leekie.com/login"
 USERNAMES_FILE = "usernames.txt"
 
 # Leo credentials
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
 
-# Watchlist credentials
-# WATCHLIST_USERNAME = input("Watchlist Username: ")
-# WATCHLIST_PASSWORD = input("Watchlist Password: ")
 
-# --- Step 1: Read usernames from Notepad ---
+# --- Helper: Safely get frame even after reload ---
+def get_frame(page, name, retries=20):
+    for _ in range(retries):
+        for frame in page.frames:
+            if frame.name == name:
+                return frame
+        page.wait_for_timeout(300)
+    return None
+
+
+# --- Step 1: Read usernames ---
 with open(USERNAMES_FILE, "r") as f:
     usernames = [line.strip() for line in f if line.strip()]
 
 print(f"Usernames loaded: {usernames}")
 
-# --- Step 2: Login to LEO manually ---
+# --- Step 2: Login ---
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
-
     context = browser.new_context()
     leo_page = context.new_page()
 
-    # Go to login page
     leo_page.goto(LEO_LOGIN_URL)
 
-    # Fill login form and submit
     print("Logging in manually...")
     leo_page.fill("#txtUsername", LEO_USERNAME)
     leo_page.fill("#txtPassword", LEO_PASSWORD)
     leo_page.click("#btnLogin")
+
     leo_page.wait_for_load_state("networkidle")
 
-    leo_page.wait_for_selector("frame[name='menu']")
-    menu_frame = leo_page.frame(name="menu")
+    # Get menu frame safely
+    menu_frame = get_frame(leo_page, "menu")
 
     if not menu_frame:
         print("Login may have failed")
@@ -46,26 +50,36 @@ with sync_playwright() as p:
 
     print("Login successful!")
 
-    # --- Step 3: Loop through Players ---
+    # --- Step 3: Loop Players ---
     for username in usernames:
         print(f"\nSearching Player: {username}")
 
         try:
+            # Refresh menu frame every loop
+            menu_frame = get_frame(leo_page, "menu")
+
             # --- Search Player ---
             menu_frame.fill("#T1", "")
             menu_frame.fill("#T1", username)
             menu_frame.click(".Button")
 
-            menu_frame.wait_for_timeout(1500)
+            leo_page.wait_for_timeout(1200)
 
-            # --- Step 4: Scrape Data ---
-            raw_text = menu_frame.locator(
+            # --- Get contents frame ---
+            contents_frame = get_frame(leo_page, "contents")
+
+            if not contents_frame:
+                print("contents frame missing")
+                continue
+
+            # --- Scrape Outstanding Txn ---
+            raw_text = contents_frame.locator(
                 "//tr[th[contains(text(),'Outstanding Txn')]]/td/span"
             ).inner_text()
             text_only = raw_text.split()[0]
             print("Currency:", text_only)
 
-            # --- Scrape SMA / MASTER / AGENT ---
+            # --- SMA / MASTER / AGENT ---
             sma = menu_frame.locator(
                 "//tr[th[contains(text(),'SMA')]]/td/a"
             ).inner_text()
@@ -82,39 +96,36 @@ with sync_playwright() as p:
 
             # --- Click Detail ---
             menu_frame.click("#detail")
-
-            # --- Get contents frame ---
-            leo_page.wait_for_selector("frame[name='contents']")
-            contents_frame = leo_page.frame(name="contents")
+            leo_page.wait_for_timeout(1200)
 
             # --- Get itop frame ---
-            itop_frame = None
-            for frame in contents_frame.child_frames:
-                if frame.name == "itop":
-                    itop_frame = frame
+            itop_frame = get_frame(leo_page, "itop")
 
             if not itop_frame:
-                print("itop frame missing")
+                print("itop frame not found")
                 continue
 
-            # --- Click setting ---
-            itop_frame.wait_for_selector("#Setting")
-            itop_frame.click("#Setting", force=True)
+            itop_frame.wait_for_selector("#Setting", timeout=5000)
+            itop_frame.click("#Setting")
+
+            leo_page.wait_for_timeout(1200)
 
             # --- Get icontents frame ---
-            icontents_frame = None
-            for frame in contents_frame.child_frames:
-                if frame.name == "icontents":
-                    icontents_frame = frame
+            icontents_frame = get_frame(leo_page, "icontents")
 
             if not icontents_frame:
                 print("icontents frame missing")
                 continue
 
-            # --- Open commision Tab ---
-            icontents_frame.click(".PSelectedLC")
+            # --- Click Live Casino & Casino Games ---
+            icontents_frame.wait_for_selector(
+                "td:has-text('Live Casino & Casino Games')", timeout=5000
+            )
+            icontents_frame.click("td:has-text('Live Casino & Casino Games')")
 
-            # --- Get MA commission ---
+            leo_page.wait_for_timeout(800)
+
+            # --- Get MA Commission ---
             ma_comm = icontents_frame.locator("#LCTextMaComm").input_value()
             print("MA Commission:", ma_comm)
 
@@ -123,6 +134,5 @@ with sync_playwright() as p:
             print("Reason:", e)
             continue
 
-    # Keep browser open to interact
     input("Press Enter to close browser...")
     browser.close()
