@@ -125,9 +125,27 @@ with sync_playwright() as p:
 
             leo_page.wait_for_timeout(800)
 
-            # --- Get MA Commission ---
+            # --- Get Commission ---
+            sma_comm = icontents_frame.locator("#LCTextSmaComm").input_value()
             ma_comm = icontents_frame.locator("#LCTextMaComm").input_value()
+            agent_comm = icontents_frame.locator("#LCTextAgtComm").input_value()
+            player_comm = icontents_frame.locator("#LCTextPlayerComm").input_value()
+
+            print("SMA Commission:", sma_comm)
             print("MA Commission:", ma_comm)
+            print("AGENT Commission:", agent_comm)
+            print("PLAYER Commission:", player_comm)
+
+            # --- Get Position Taking ---
+            sma_pt = icontents_frame.locator("#LC1_SMA").input_value()
+            ma_pt = icontents_frame.locator("#LC1_MA").input_value()
+            agent_pt = icontents_frame.locator(
+                "#LC1AgtPT option:checked"
+            ).get_attribute("value")
+
+            print("SMA Position Taking:", sma_pt)
+            print("MA Position Taking:", ma_pt)
+            print("Agent Position Taking:", agent_pt)
 
         except Exception as e:
             print("Error for player:", username)
