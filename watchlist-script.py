@@ -55,12 +55,22 @@ if today >= expiry:
 
     sys.exit()
 
+
+# --- Add EXE-Safe Path Loader
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
 WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
 
-USERNAMES_FILE = "usernames.txt"
-OUTPUT_CSV = "leo_results.csv"
+USERNAMES_FILE = resource_path("usernames.txt")
+OUTPUT_CSV = resource_path("leo_results.csv")
 
 # --- B2B OR B2C ---
 while True:
