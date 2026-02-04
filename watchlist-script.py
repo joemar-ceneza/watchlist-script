@@ -147,6 +147,15 @@ with sync_playwright() as p:
 
     leo_page.wait_for_load_state("networkidle")
 
+    # --- Handle Failed Login Attempt Popup ---
+    try:
+        if leo_page.locator("#tblExchange").is_visible(timeout=3000):
+            print("Login warning popup detected — clicking Continue...")
+            leo_page.click("#continue")
+            leo_page.wait_for_load_state("networkidle")
+    except:
+        pass
+
     # --- Get menu frame safely ---
     menu_frame = get_frame(leo_page, "menu")
 
