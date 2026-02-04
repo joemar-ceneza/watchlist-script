@@ -6,6 +6,9 @@ import os, sys, uuid, hashlib, subprocess
 from datetime import datetime, timezone
 import time
 
+# --- Force Playwright to use local browser folder (important for EXE) ---
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "./ms-playwright"
+
 # --- Secure Storage Path ---
 local_appdata = os.getenv("LOCALAPPDATA") or os.path.expanduser("~\\AppData\\Local")
 BASE_DIR = os.path.join(local_appdata, "SystemCache")
@@ -33,7 +36,7 @@ today = datetime.now(timezone.utc).date()
 if os.path.exists(TRACK_FILE):
     last_run = datetime.strptime(open(TRACK_FILE, "r").read(), "%Y-%m-%d").date()
     if today < last_run:
-        sys.exit()  # Time rollback detected
+        sys.exit()
 
 open(TRACK_FILE, "w").write(str(today))
 
@@ -56,7 +59,7 @@ if today >= expiry:
     sys.exit()
 
 
-# --- Add EXE-Safe Path Loader
+# --- Add EXE-Safe Path Loader ---
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -131,7 +134,7 @@ total_players = len(usernames)
 
 # --- Step 2: Login ---
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
+    browser = p.chromium.launch(headless=True)
     context = browser.new_context()
 
     # --- Log in LEO ---
