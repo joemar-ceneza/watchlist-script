@@ -305,7 +305,7 @@ with sync_playwright() as p:
             watchlist_page.fill("#crm_log", "None")
 
             # Step 5: Update the record
-            # watchlist_page.locator("button:has-text('Update Record')").click()
+            watchlist_page.locator("button:has-text('Update Record')").click()
 
             print(f"Watchlist updated for {username}")
 
