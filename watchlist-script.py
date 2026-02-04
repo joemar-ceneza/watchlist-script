@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 import os, sys, uuid, hashlib, subprocess
 from datetime import datetime, timezone
+import time
 
 # --- Secure Storage Path ---
 local_appdata = os.getenv("LOCALAPPDATA") or os.path.expanduser("~\\AppData\\Local")
@@ -116,6 +117,8 @@ rows = []
 with open(USERNAMES_FILE, "r") as f:
     usernames = [line.strip() for line in f if line.strip()]
 
+total_players = len(usernames)
+
 # --- Step 2: Login ---
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
@@ -152,9 +155,12 @@ with sync_playwright() as p:
     watchlist_page.wait_for_load_state("networkidle")
     print("Watchlist Website Login successful!")
 
+    start_time = time.time()
+    script_start = time.time()
+
     # --- Step 3: Loop Players ---
-    for username in usernames:
-        print(f"\nSearching Player: {username}")
+    for i, username in enumerate(usernames, start=1):
+        print(f"[{i}/{total_players}] Searching: {username}")
 
         try:
             # --- Refresh menu frame every loop ---
@@ -307,8 +313,14 @@ with sync_playwright() as p:
             # Step 5: Update the record
             watchlist_page.locator("button:has-text('Update Record')").click()
 
-            print(f"Watchlist updated for {username}")
-
+            # Time estimate
+            elapse = time.time() - start_time
+            if elapse < 60:
+                print(f"Watchlist updated for {username}, Elapse: {elapse:.1f} seconds")
+            else:
+                print(
+                    f"Watchlist updated for {username}, Elapse: {elapse/60:.2f} minutes"
+                )
         except Exception as e:
             print("Error for {username}:", e)
             rows.append([username, "ERROR"] + [""] * (len(headers) - 2))
@@ -319,6 +331,13 @@ with sync_playwright() as p:
         writer.writerow(headers)
         writer.writerows(rows)
 
+    total_time = time.time() - script_start
+    avg_per_player = elapse / i if i else 0
+    print(f"Script finished in {total_time / 60:.2f} minutes")
+    if elapse < 60:
+        print(f"Avg/player: {avg_per_player:.1f} sec")
+    else:
+        print(f"Avg/player: {avg_per_player:.2f} mins")
     print(f"\nCSV saved as: {OUTPUT_CSV}")
 
     input("Press Enter to close browser...")
