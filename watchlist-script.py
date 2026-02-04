@@ -6,8 +6,9 @@ import os, sys, uuid, hashlib, subprocess
 from datetime import datetime, timezone
 import time
 
-# --- Force Playwright to use local browser folder (important for EXE) ---
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "./ms-playwright"
+# Only force local browser path when running as EXE
+if getattr(sys, "frozen", False):
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "./ms-playwright"
 
 # --- Secure Storage Path ---
 local_appdata = os.getenv("LOCALAPPDATA") or os.path.expanduser("~\\AppData\\Local")
