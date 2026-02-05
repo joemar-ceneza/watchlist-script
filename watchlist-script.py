@@ -215,6 +215,7 @@ with sync_playwright() as p:
 
     # --- Step 3: Loop Players ---
     for i, username in enumerate(usernames, start=1):
+        user_start = time.time()
         print(f"[{i}/{total_players}] Searching: {username}")
 
         try:
@@ -453,13 +454,13 @@ with sync_playwright() as p:
             # --- Step 5: Update the record ---
             watchlist_page.locator("button:has-text('Update Record')").click()
 
-            # --- Time estimate ---
-            elapse = time.time() - start_time
-            if elapse < 60:
-                print(f"Watchlist updated for {username}, Elapse: {elapse:.1f} seconds")
+            # --- Time track per user ---
+            user_elapsed = time.time() - user_start
+            if user_elapsed < 60:
+                print(f"Watchlist updated for {username}, Time: {user_elapsed:.1f} sec")
             else:
                 print(
-                    f"Watchlist updated for {username}, Elapse: {elapse/60:.2f} minutes"
+                    f"Watchlist updated for {username}, Time: {user_elapsed/60:.2f} mins"
                 )
         except Exception as e:
             print("Error for {username}:", e)
@@ -472,12 +473,9 @@ with sync_playwright() as p:
         writer.writerows(rows)
 
     total_time = time.time() - script_start
-    avg_per_player = elapse / i if i else 0
-    print(f"Script finished in {total_time / 60:.2f} minutes")
-    if elapse < 60:
-        print(f"Avg/player: {avg_per_player:.1f} sec")
-    else:
-        print(f"Avg/player: {avg_per_player:.2f} mins")
+    avg_per_player = total_time / total_players if total_players else 0
+    print(f"\nScript finished in {total_time / 60:.2f} minutes")
+    print(f"Avg/player: {avg_per_player:.2f} seconds")
     print(f"\nCSV saved as: {OUTPUT_CSV}")
 
     input("Press Enter to close browser...")
