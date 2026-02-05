@@ -317,7 +317,7 @@ with sync_playwright() as p:
             # --- Always get unique player IP Address ---
             icontents_frame.fill("#txtAccountId", username)
             icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(2000)
+            icontents_frame.wait_for_timeout(500)
             icontents_frame.locator("input.Button[value='Submit']").click()
             icontents_frame.wait_for_timeout(3000)
 
@@ -345,8 +345,6 @@ with sync_playwright() as p:
                 # --- Get unique agent IP Address ---
                 icontents_frame.fill("#txtAccountId", agent)
                 icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(2000)
-                icontents_frame.locator("input.Button[value='Submit']").click()
                 icontents_frame.wait_for_timeout(3000)
 
                 cells = icontents_frame.locator("tbody tr td:nth-child(5)")
@@ -368,8 +366,6 @@ with sync_playwright() as p:
                 # --- Get unique master IP Address ---
                 icontents_frame.fill("#txtAccountId", master)
                 icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(2000)
-                icontents_frame.locator("input.Button[value='Submit']").click()
                 icontents_frame.wait_for_timeout(3000)
 
                 cells = icontents_frame.locator("tbody tr td:nth-child(5)")
@@ -390,8 +386,6 @@ with sync_playwright() as p:
 
                 # --- Get unique sma IP Address ---
                 icontents_frame.fill("#txtAccountId", sma)
-                icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(2000)
                 icontents_frame.locator("input.Button[value='Submit']").click()
                 icontents_frame.wait_for_timeout(3000)
 
