@@ -130,6 +130,33 @@ def get_frame(page, name, retries=20):
     return None
 
 
+# --- Modular IP Scraper (Reusable Function) ---
+def scrape_unique_ips(frame, account_id, max_ips=3):
+    frame.fill("#txtAccountId", account_id)
+    frame.locator("input.Button[value='Submit']").click()
+    frame.wait_for_timeout(500)
+    frame.locator("input.Button[value='Submit']").click()
+    frame.wait_for_timeout(500)
+    frame.wait_for_selector("tbody tr", timeout=5000)
+
+    unique_ips = []
+    cells = frame.locator("tbody tr td:nth-child(5)")
+
+    for i in range(cells.count()):
+        ip = cells.nth(i).inner_text().strip()
+        if ip.count(".") == 3 and ip not in unique_ips:
+            unique_ips.append(ip)
+        if len(unique_ips) >= max_ips:
+            break
+    return unique_ips
+
+
+# --- Modular Watchlist IP Fill ---
+def fill_ip_box(page, role, ip_list):
+    value = "\n".join(ip_list) if ip_list else ""
+    page.locator(f"textarea[name='ip_address[{role}]']").fill(value)
+
+
 # --- Time Tracker ---
 start_time = time.time()
 script_start = time.time()
@@ -315,26 +342,7 @@ with sync_playwright() as p:
             )
 
             # --- Always get unique player IP Address ---
-            icontents_frame.fill("#txtAccountId", username)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(500)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(3000)
-
-            unique_ip_player = []
-            cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-            for i in range(cells.count()):
-                ip = cells.nth(i).inner_text().strip()
-                if (
-                    ip.count(".") == 3
-                    and all(p.isdigit() for p in ip.split("."))
-                    and ip not in unique_ip_player
-                ):
-                    unique_ip_player.append(ip)
-                if len(unique_ip_player) >= 3:
-                    break
-            print(f"Unique Player IPs: {unique_ip_player}")
+            unique_ip_player = scrape_unique_ips(icontents_frame, username)
 
             # --- Only get Agent/Master/SMA IPs if B2B ---
             unique_ip_agent = []
@@ -343,67 +351,17 @@ with sync_playwright() as p:
 
             if B2B_B2C == "B2B":
                 # --- Get unique agent IP Address ---
-                icontents_frame.fill("#txtAccountId", agent)
-                icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(3000)
-
-                cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-                for i in range(cells.count()):
-                    ip = cells.nth(i).inner_text().strip()
-
-                    if (
-                        ip.count(".") == 3
-                        and all(p.isdigit() for p in ip.split("."))
-                        and ip not in unique_ip_agent
-                    ):
-                        unique_ip_agent.append(ip)
-
-                    if len(unique_ip_agent) >= 3:
-                        break
-                print(f"Unique Agent IPs: {unique_ip_agent}")
-
+                unique_ip_agent = scrape_unique_ips(icontents_frame, agent)
                 # --- Get unique master IP Address ---
-                icontents_frame.fill("#txtAccountId", master)
-                icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(3000)
-
-                cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-                for i in range(cells.count()):
-                    ip = cells.nth(i).inner_text().strip()
-
-                    if (
-                        ip.count(".") == 3
-                        and all(p.isdigit() for p in ip.split("."))
-                        and ip not in unique_ip_master
-                    ):
-                        unique_ip_master.append(ip)
-
-                    if len(unique_ip_master) >= 3:
-                        break
-                print(f"Unique Master IPs: {unique_ip_master}")
-
+                unique_ip_master = scrape_unique_ips(icontents_frame, master)
                 # --- Get unique sma IP Address ---
-                icontents_frame.fill("#txtAccountId", sma)
-                icontents_frame.locator("input.Button[value='Submit']").click()
-                icontents_frame.wait_for_timeout(3000)
+                unique_ip_sma = scrape_unique_ips(icontents_frame, sma)
 
-                cells = icontents_frame.locator("tbody tr td:nth-child(5)")
+            print("Player IPs:", unique_ip_player)
+            print("Agent IPs:", unique_ip_agent)
+            print("Master IPs:", unique_ip_master)
+            print("SMA IPs:", unique_ip_sma)
 
-                for i in range(cells.count()):
-                    ip = cells.nth(i).inner_text().strip()
-
-                    if (
-                        ip.count(".") == 3
-                        and all(p.isdigit() for p in ip.split("."))
-                        and ip not in unique_ip_sma
-                    ):
-                        unique_ip_sma.append(ip)
-
-                    if len(unique_ip_sma) >= 3:
-                        break
-                print(f"Unique SMA IPs: {unique_ip_sma}")
             print(f"Successfully scraped data for username: {username}")
 
             # --- Save row ---
@@ -483,19 +441,14 @@ with sync_playwright() as p:
             )
 
             # --- Only fill Agent/Master/SMA if B2B ---
+            fill_ip_box(watchlist_page, "player", unique_ip_player)
             if B2B_B2C == "B2B":
                 # --- Agent IP ---
-                watchlist_page.locator("textarea[name='ip_address[agent]']").fill(
-                    "\n".join(unique_ip_agent)
-                )
+                fill_ip_box(watchlist_page, "agent", unique_ip_agent)
                 # --- Master IP ---
-                watchlist_page.locator("textarea[name='ip_address[ma]']").fill(
-                    "\n".join(unique_ip_master)
-                )
+                fill_ip_box(watchlist_page, "ma", unique_ip_master)
                 # --- SMA IP ---
-                watchlist_page.locator("textarea[name='ip_address[sma]']").fill(
-                    "\n".join(unique_ip_sma)
-                )
+                fill_ip_box(watchlist_page, "sma", unique_ip_sma)
 
             # --- Step 5: Update the record ---
             watchlist_page.locator("button:has-text('Update Record')").click()
