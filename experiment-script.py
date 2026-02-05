@@ -499,8 +499,20 @@ with sync_playwright() as p:
                 ip_player
             )
 
+            # Agent IP
+            ip_agent = "\n".join(unique_ip_agent)
+            watchlist_page.locator("textarea[name='ip_address[agent]']").fill(ip_agent)
+
+            # Master IP
+            ip_master = "\n".join(unique_ip_master)
+            watchlist_page.locator("textarea[name='ip_address[ma]']").fill(ip_master)
+
+            # SMA IP
+            ip_sma = "\n".join(unique_ip_sma)
+            watchlist_page.locator("textarea[name='ip_address[sma]']").fill(ip_sma)
+
             # Step 5: Update the record
-            # watchlist_page.locator("button:has-text('Update Record')").click()
+            watchlist_page.locator("button:has-text('Update Record')").click()
 
             # Time estimate
             elapse = time.time() - start_time
