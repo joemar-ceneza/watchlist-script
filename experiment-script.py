@@ -33,7 +33,7 @@ else:
     open(DEVICE_FILE, "w").write(device_id)
 
 # --- Anti Clock-Tampering (UTC Safe) ---
-today = datetime.now(timezone.utc).date()
+today = datetime.today().date()
 
 if os.path.exists(TRACK_FILE):
     last_run = datetime.strptime(open(TRACK_FILE, "r").read(), "%Y-%m-%d").date()
@@ -119,8 +119,8 @@ formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
 encoded_date = quote_plus(formatted_date)
 
 # --- Watchlist Date picker ---
-from_date = yesterday.strftime("%m/%d/%Y 12:00:00 AM")
-to_date = today.strftime("%m/%d/%Y 12:00:00 AM")
+from_date = yesterday.strftime("%m/%d/%Y")
+to_date = today.strftime("%m/%d/%Y")
 
 
 # --- Helper: Safely get frame even after reload ---
@@ -360,11 +360,14 @@ with sync_playwright() as p:
                 const to = document.querySelector("#dpTo");
 
                 if (from && to) {{
-                    from.value = "{from_date} 12:00 AM";
-                    to.value = "{to_date} 12:00 AM";
+                    from.value = "{from_date} 12:00:00 AM";
+                    to.value = "{to_date} 12:00:00 AM";
 
-                    from.dispatchEvent(new Event('change'));
-                    to.dispatchEvent(new Event('change'));
+                    from.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    from.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+                    to.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    to.dispatchEvent(new Event('change', {{ bubbles: true }}));
                 }}
             """
             )
