@@ -108,6 +108,8 @@ headers = [
     "Agent Comm",
     "MA Comm",
     "SMA Comm",
+    "Yesterday Comm",
+    "7 Days Comm",
 ]
 
 # --- Date format ---
@@ -183,6 +185,7 @@ with sync_playwright() as p:
     leo_page.click("#btnLogin")
 
     leo_page.wait_for_load_state("networkidle")
+    print("===================================================================")
     print("Leo Website Login successful!")
 
     # --- Handle Failed Login Attempt Popup ---
@@ -216,6 +219,8 @@ with sync_playwright() as p:
     # --- Step 3: Loop Players ---
     for i, username in enumerate(usernames, start=1):
         user_start = time.time()
+
+        print("===================================================================")
         print(f"[{i}/{total_players}] Searching: {username}")
 
         try:
@@ -350,6 +355,7 @@ with sync_playwright() as p:
             unique_ip_master = []
             unique_ip_sma = []
 
+            print("===================================================================")
             print("Player IPs:", unique_ip_player)
 
             if B2B_B2C == "B2B":
@@ -364,6 +370,67 @@ with sync_playwright() as p:
                 print("Master IPs:", unique_ip_master)
                 print("SMA IPs:", unique_ip_sma)
 
+            # --- Click Statement ---
+            menu_frame.click("#stmt")
+            contents_frame.wait_for_selector("#tblExchange")
+            contents_frame.locator("#showCols").check()
+
+            # --- Get Yesterday and 7 Days Commission
+            yesterday_date = (
+                yesterday.date() if hasattr(yesterday, "date") else yesterday
+            )
+
+            start_7_days = yesterday_date - timedelta(days=7)
+            end_7_days = yesterday_date - timedelta(days=1)
+
+            table_rows = contents_frame.locator("#tblExchange tbody tr:not(#totalRow)")
+
+            yesterday_commission = 0.0
+            last_7_days_commission = 0.0
+
+            for i in range(table_rows.count()):
+                row = table_rows.nth(i)
+
+                try:
+                    date_text = row.locator("td").nth(1).inner_text().strip()
+                    product_text = row.locator("td").nth(3).inner_text().strip()
+                    comm_text = (
+                        row.locator("td[name='commission']").inner_text().strip()
+                    )
+                except:
+                    continue
+
+                # Filter product
+                if "Live Casino & Casino Games" not in product_text:
+                    continue
+
+                # Parse date
+                try:
+                    row_date = datetime.strptime(date_text, "%m/%d/%Y").date()
+                except:
+                    continue
+
+                # Parse commission
+                if not comm_text:
+                    continue
+
+                try:
+                    comm_value = float(comm_text.replace(",", ""))
+                except:
+                    continue
+
+                # Yesterday ONLY
+                if row_date == yesterday_date:
+                    yesterday_commission += comm_value
+
+                # Last 7 days excluding yesterday
+                elif start_7_days <= row_date <= end_7_days:
+                    last_7_days_commission += comm_value
+
+            print("===================================================================")
+            print(f"Yesterday Commission: {yesterday_commission:,.2f}")
+            print(f"Last 7 Days Commission: {last_7_days_commission:,.2f}")
+            print("===================================================================")
             print(f"Successfully scraped data for username: {username}")
 
             # --- Save row ---
@@ -463,7 +530,7 @@ with sync_playwright() as p:
                     f"Watchlist updated for {username}, Time: {user_elapsed/60:.2f} mins"
                 )
         except Exception as e:
-            print("Error for {username}:", e)
+            print(f"Error for {username}:", e)
             rows.append([username, "ERROR"] + [""] * (len(headers) - 2))
 
     # --- Save CSV ---
