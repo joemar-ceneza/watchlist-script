@@ -73,6 +73,7 @@ def resource_path(relative_path):
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
 WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
+WATCHLIST_CURRENCY_RATE = "http://insiderinew.octagonexpress.co/getsearchexchangeRate?monthYear=2026-02&casino_type_id=2"
 
 USERNAMES_FILE = resource_path("usernames.txt")
 OUTPUT_CSV = resource_path("leo_results.csv")
@@ -185,16 +186,16 @@ with sync_playwright() as p:
     leo_page.click("#btnLogin")
 
     leo_page.wait_for_load_state("networkidle")
-    print("===================================================================")
-    print("Leo Website Login successful!")
 
     # --- Handle Failed Login Attempt Popup ---
     try:
         if leo_page.locator("#tblExchange").is_visible(timeout=3000):
-            print("Login warning popup detected — clicking Continue...")
+            print("Login Warning Popup Detected — Clicking Continue...")
             leo_page.click("#continue")
             leo_page.wait_for_load_state("networkidle")
     except:
+        print("===================================================================")
+        print("Leo Website Login successful!")
         pass
 
     # --- Get menu frame safely ---
@@ -215,6 +216,28 @@ with sync_playwright() as p:
 
     watchlist_page.wait_for_load_state("networkidle")
     print("Watchlist Website Login successful!")
+    watchlist_page.wait_for_selector("h2:has-text('Good Day')", timeout=5000)
+
+    # --- Watchlist Currency Rate ---
+    watchlist_currency = context.new_page()
+    watchlist_currency.goto(WATCHLIST_CURRENCY_RATE)
+    rates = {}
+    rows_rate = watchlist_currency.locator("table.table tbody tr")
+
+    for i in range(rows_rate.count()):
+        row = rows_rate.nth(i)
+
+        try:
+            currency = row.locator("td").nth(0).inner_text().strip()
+            rate = row.locator("input").get_attribute("value")
+
+            if currency and rate:
+                normalized_currency = currency_map.get(currency, currency)
+                rates[normalized_currency] = float(rate)
+        except:
+            continue
+
+    print("Watchlist Currency Rate Successfully Scraped")
 
     # --- Step 3: Loop Players ---
     for i, username in enumerate(usernames, start=1):
@@ -253,8 +276,9 @@ with sync_playwright() as p:
             ).inner_text()
             currency = raw_text.split()[0]
             currency = currency_map.get(currency, currency)
+            exchange_rate = rates.get(currency, 1.0)
 
-            # --- SMA / MASTER / AGENT ---
+            # --- SMA / Master / Agent ---
             sma = menu_frame.locator(
                 "//tr[th[contains(text(),'SMA')]]/td/a"
             ).inner_text()
@@ -321,7 +345,7 @@ with sync_playwright() as p:
 
             leo_page.wait_for_timeout(1200)
 
-            # --- Click Login History
+            # --- Click Login History ---
             itop_frame = get_frame(leo_page, "itop")
             itop_frame.wait_for_selector("a:has-text('Login History')", timeout=8000)
             itop_frame.click("a:has-text('Login History')")
@@ -375,7 +399,7 @@ with sync_playwright() as p:
             contents_frame.wait_for_selector("#tblExchange")
             contents_frame.locator("#showCols").check()
 
-            # --- Get Yesterday and 7 Days Commission
+            # --- Get Yesterday and 7 Days Commission ---
             yesterday_date = (
                 yesterday.date() if hasattr(yesterday, "date") else yesterday
             )
@@ -400,17 +424,17 @@ with sync_playwright() as p:
                 except:
                     continue
 
-                # Filter product
+                # --- Filter product ---
                 if "Live Casino & Casino Games" not in product_text:
                     continue
 
-                # Parse date
+                # --- Parse date ---
                 try:
                     row_date = datetime.strptime(date_text, "%m/%d/%Y").date()
                 except:
                     continue
 
-                # Parse commission
+                # --- Parse commission ---
                 if not comm_text:
                     continue
 
@@ -419,17 +443,23 @@ with sync_playwright() as p:
                 except:
                     continue
 
-                # Yesterday ONLY
+                # --- Yesterday ONLY ---
                 if row_date == yesterday_date:
                     yesterday_commission += comm_value
 
-                # Last 7 days excluding yesterday
+                # --- Last 7 days excluding yesterday ---
                 elif start_7_days <= row_date <= end_7_days:
                     last_7_days_commission += comm_value
 
+            converted_yesterday = yesterday_commission / exchange_rate
+            converted_last_7_days = last_7_days_commission / exchange_rate
+
             print("===================================================================")
-            print(f"Yesterday Commission: {yesterday_commission:,.2f}")
-            print(f"Last 7 Days Commission: {last_7_days_commission:,.2f}")
+            print(f"Currency: {currency}")
+            print(f"Exchange Rate: {exchange_rate}")
+            print(f"Yesterday Commission: {converted_yesterday:,.2f}")
+            print(f"Last 7 Days Commission: {converted_last_7_days:,.2f}")
+
             print("===================================================================")
             print(f"Successfully scraped data for username: {username}")
 
@@ -448,6 +478,8 @@ with sync_playwright() as p:
                     agent_comm,
                     ma_comm,
                     sma_comm,
+                    f"{converted_yesterday:.2f}",
+                    f"{converted_last_7_days:.2f}",
                 ]
             )
 
@@ -480,8 +512,8 @@ with sync_playwright() as p:
             watchlist_page.fill("#sma", sma)
 
             # --- Total Commission ---
-            watchlist_page.fill("#current_comm", "0")
-            watchlist_page.fill("#last_seven_comm", "0")
+            watchlist_page.fill("#current_comm", f"{converted_yesterday:.2f}")
+            watchlist_page.fill("#last_seven_comm", f"{converted_last_7_days:.2f}")
 
             # --- Player Taking Percentage ---
             watchlist_page.locator("input[name='pt[player]']").fill("0")
@@ -524,8 +556,14 @@ with sync_playwright() as p:
             # --- Time track per user ---
             user_elapsed = time.time() - user_start
             if user_elapsed < 60:
+                print(
+                    "==================================================================="
+                )
                 print(f"Watchlist updated for {username}, Time: {user_elapsed:.1f} sec")
             else:
+                print(
+                    "==================================================================="
+                )
                 print(
                     f"Watchlist updated for {username}, Time: {user_elapsed/60:.2f} mins"
                 )
@@ -541,9 +579,12 @@ with sync_playwright() as p:
 
     total_time = time.time() - script_start
     avg_per_player = total_time / total_players if total_players else 0
-    print(f"\nScript finished in {total_time / 60:.2f} minutes")
+    print("===================================================================")
+    print(f"Script finished in {total_time / 60:.2f} minutes")
     print(f"Avg/player: {avg_per_player:.2f} seconds")
-    print(f"\nCSV saved as: {OUTPUT_CSV}")
+    print("===================================================================")
+    print(f"CSV saved as: {OUTPUT_CSV}")
+    print("===================================================================")
 
     input("Press Enter to close browser...")
     browser.close()
