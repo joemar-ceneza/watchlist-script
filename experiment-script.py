@@ -364,6 +364,26 @@ with sync_playwright() as p:
                 print("Master IPs:", unique_ip_master)
                 print("SMA IPs:", unique_ip_sma)
 
+            # --- Click Statement ---
+            menu_frame.click("#stmt")
+            contents_frame.wait_for_selector("#tblExchange")
+            print("Success Waiting")
+            contents_frame.locator("#showCols").check()
+            print("Success Check")
+
+            yesterday1 = (datetime.now() - timedelta(days=1)).strftime("%d/%m/%Y")
+
+            row = contents_frame.locator(
+                f"tbody tr:not(#totalRow):has(td:has-text('{yesterday1}'))"
+                ":has(td:has-text('Live Casino & Casino Games'))"
+            )
+
+            if row.count() == 0:
+                print("No commission found for yesterday")
+            else:
+                commission = row.locator("td[name='commission']").text_content().strip()
+                print("Yesterday commission:", commission)
+
             print(f"Successfully scraped data for username: {username}")
 
             # --- Save row ---
