@@ -136,9 +136,9 @@ def get_frame(page, name, retries=20):
 def scrape_unique_ips(frame, account_id, max_ips=3):
     frame.fill("#txtAccountId", account_id)
     frame.locator("input.Button[value='Submit']").click()
-    frame.wait_for_timeout(2000)
+    frame.wait_for_timeout(1000)
     frame.locator("input.Button[value='Submit']").click()
-    frame.wait_for_timeout(2000)
+    frame.wait_for_timeout(500)
     frame.wait_for_selector("tbody tr", timeout=5000)
 
     unique_ips = []
