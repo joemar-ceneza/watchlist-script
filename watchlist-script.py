@@ -134,9 +134,9 @@ def get_frame(page, name, retries=20):
 def scrape_unique_ips(frame, account_id, max_ips=3):
     frame.fill("#txtAccountId", account_id)
     frame.locator("input.Button[value='Submit']").click()
-    frame.wait_for_timeout(500)
+    frame.wait_for_timeout(2000)
     frame.locator("input.Button[value='Submit']").click()
-    frame.wait_for_timeout(500)
+    frame.wait_for_timeout(2000)
     frame.wait_for_selector("tbody tr", timeout=5000)
 
     unique_ips = []
@@ -350,6 +350,8 @@ with sync_playwright() as p:
             unique_ip_master = []
             unique_ip_sma = []
 
+            print("Player IPs:", unique_ip_player)
+
             if B2B_B2C == "B2B":
                 # --- Get unique agent IP Address ---
                 unique_ip_agent = scrape_unique_ips(icontents_frame, agent)
@@ -358,10 +360,9 @@ with sync_playwright() as p:
                 # --- Get unique sma IP Address ---
                 unique_ip_sma = scrape_unique_ips(icontents_frame, sma)
 
-            print("Player IPs:", unique_ip_player)
-            print("Agent IPs:", unique_ip_agent)
-            print("Master IPs:", unique_ip_master)
-            print("SMA IPs:", unique_ip_sma)
+                print("Agent IPs:", unique_ip_agent)
+                print("Master IPs:", unique_ip_master)
+                print("SMA IPs:", unique_ip_sma)
 
             print(f"Successfully scraped data for username: {username}")
 
@@ -432,17 +433,16 @@ with sync_playwright() as p:
             watchlist_page.fill("#crm_log", "None")
 
             # --- Check if unique_ip_player list is empty ---
-            if not unique_ip_player:
-                ip_player = ip_address if ip_address else ""
-            else:
+            if unique_ip_player and len(unique_ip_player) > 0:
                 ip_player = "\n".join(unique_ip_player)
+            else:
+                ip_player = ip_address if ip_address else ""
 
             watchlist_page.locator("textarea[name='ip_address[player]']").fill(
                 ip_player
             )
 
             # --- Only fill Agent/Master/SMA if B2B ---
-            fill_ip_box(watchlist_page, "player", unique_ip_player)
             if B2B_B2C == "B2B":
                 # --- Agent IP ---
                 fill_ip_box(watchlist_page, "agent", unique_ip_agent)
