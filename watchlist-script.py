@@ -98,16 +98,16 @@ currency_map = {"Pp": "IDR", "TB": "THB"}
 headers = [
     "Username",
     "Currency",
-    "SMA",
-    "Master",
     "Agent",
-    "Agent Position Taking",
-    "MA Position Taking",
-    "SMA Position Taking",
-    "Player Commission",
-    "Agent Commission",
-    "MA Commission",
-    "SMA Commission",
+    "Master",
+    "SMA",
+    "Agent PT",
+    "MA PT",
+    "SMA PT",
+    "Player Comm",
+    "Agent Comm",
+    "MA Comm",
+    "SMA Comm",
 ]
 
 # --- Date format ---
@@ -371,9 +371,9 @@ with sync_playwright() as p:
                 [
                     username,
                     currency,
+                    agent,
                     sma,
                     master,
-                    agent,
                     agent_pt,
                     ma_pt,
                     sma_pt,
