@@ -79,7 +79,6 @@ OUTPUT_CSV = resource_path("leo_results.csv")
 
 # --- B2B OR B2C ---
 while True:
-    # B2B_B2C = input("Enter business type (B2B or B2C): ").strip().upper()
     B2B_B2C = "B2B"
     if B2B_B2C in ["B2B", "B2C"]:
         break
@@ -112,11 +111,13 @@ headers = [
 ]
 
 # --- Date format ---
-yesterday = datetime.today() - timedelta(days=2)
-from_date = yesterday.strftime("%m/%d/%Y 12:00:00 AM")
-to_date = today.strftime("%m/%d/%Y 12:00:00 AM")
+yesterday = datetime.today() - timedelta(days=1)
 formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
 encoded_date = quote_plus(formatted_date)
+
+# --- Watchlist Date picker ---
+from_date = yesterday.strftime("%m/%d/%Y 12:00:00 AM")
+to_date = today.strftime("%m/%d/%Y 12:00:00 AM")
 
 
 # --- Helper: Safely get frame even after reload ---
@@ -128,6 +129,37 @@ def get_frame(page, name, retries=20):
         page.wait_for_timeout(300)
     return None
 
+
+# --- Modular IP Scraper (Reusable Function) ---
+def scrape_unique_ips(frame, account_id, max_ips=3):
+    frame.fill("#txtAccountId", account_id)
+    frame.locator("input.Button[value='Submit']").click()
+    frame.wait_for_timeout(2000)
+    frame.locator("input.Button[value='Submit']").click()
+    frame.wait_for_timeout(2000)
+    frame.wait_for_selector("tbody tr", timeout=5000)
+
+    unique_ips = []
+    cells = frame.locator("tbody tr td:nth-child(5)")
+
+    for i in range(cells.count()):
+        ip = cells.nth(i).inner_text().strip()
+        if ip.count(".") == 3 and ip not in unique_ips:
+            unique_ips.append(ip)
+        if len(unique_ips) >= max_ips:
+            break
+    return unique_ips
+
+
+# --- Modular Watchlist IP Fill ---
+def fill_ip_box(page, role, ip_list):
+    value = "\n".join(ip_list) if ip_list else ""
+    page.locator(f"textarea[name='ip_address[{role}]']").fill(value)
+
+
+# --- Time Tracker ---
+start_time = time.time()
+script_start = time.time()
 
 rows = []
 
@@ -151,6 +183,7 @@ with sync_playwright() as p:
     leo_page.click("#btnLogin")
 
     leo_page.wait_for_load_state("networkidle")
+    print("Leo Website Login successful!")
 
     # --- Handle Failed Login Attempt Popup ---
     try:
@@ -169,8 +202,6 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
-    print("Leo Website Login successful!")
-
     # --- Log in Watchlist ---
     watchlist_page = context.new_page()
     watchlist_page.goto(WATCHLIST_LOGIN_URL)
@@ -182,11 +213,9 @@ with sync_playwright() as p:
     watchlist_page.wait_for_load_state("networkidle")
     print("Watchlist Website Login successful!")
 
-    start_time = time.time()
-    script_start = time.time()
-
     # --- Step 3: Loop Players ---
     for i, username in enumerate(usernames, start=1):
+        user_start = time.time()
         print(f"[{i}/{total_players}] Searching: {username}")
 
         try:
@@ -206,14 +235,12 @@ with sync_playwright() as p:
                 print("contents frame missing")
                 continue
 
-            # IP Address
+            # --- Last Login IP Address ---
             ip_text = contents_frame.locator(
                 "//tr[th[contains(text(),'Last Login IP')]]/td"
             ).inner_text()
             match = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", ip_text)
             ip_address = match.group() if match else None
-
-            print("Last Login IP:", ip_address)
 
             # --- Currency ---
             raw_text = contents_frame.locator(
@@ -239,7 +266,6 @@ with sync_playwright() as p:
 
             # --- Get itop frame ---
             itop_frame = get_frame(leo_page, "itop")
-
             if not itop_frame:
                 print("itop frame not found")
                 continue
@@ -251,7 +277,6 @@ with sync_playwright() as p:
 
             # --- Get icontents frame ---
             icontents_frame = get_frame(leo_page, "icontents")
-
             if not icontents_frame:
                 print("icontents frame missing")
                 continue
@@ -279,37 +304,26 @@ with sync_playwright() as p:
                 "#LC1AgtPT option:checked"
             ).get_attribute("value")
 
+            # --- Get banner frame ---
             top_frame = get_frame(leo_page, "banner")
             if not top_frame:
                 print("contents frame missing")
                 continue
 
+            # --- Click Live Casino ---
             top_frame.wait_for_selector("a:has-text('Live Casino')")
             top_frame.click("a:has-text('Live Casino')")
 
-            # Refresh itop frame
+            leo_page.wait_for_timeout(1200)
+
+            # --- Click Login History
             itop_frame = get_frame(leo_page, "itop")
+            itop_frame.wait_for_selector("a:has-text('Login History')", timeout=8000)
+            itop_frame.click("a:has-text('Login History')")
 
-            if not itop_frame:
-                print("itop frame missing — skipping player")
-                continue
+            leo_page.wait_for_timeout(1200)
 
-            try:
-                itop_frame.wait_for_selector(
-                    "a:has-text('Login History')", timeout=8000
-                )
-                itop_frame.click("a:has-text('Login History')")
-            except:
-                print("Login History menu not found — retrying...")
-
-                leo_page.wait_for_timeout(1200)
-                itop_frame = get_frame(leo_page, "itop")
-
-                itop_frame.wait_for_selector(
-                    "a:has-text('Login History')", timeout=8000
-                )
-                itop_frame.click("a:has-text('Login History')")
-
+            # --- Checking the Date Picker ---
             icontents_frame = get_frame(leo_page, "icontents")
             icontents_frame.wait_for_selector("#dpFrom", timeout=5000)
             icontents_frame.wait_for_selector("#dpTo", timeout=5000)
@@ -328,99 +342,30 @@ with sync_playwright() as p:
             """
             )
 
-            # --- Get unique player IP
-            icontents_frame.fill("#txtAccountId", username)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(2000)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(3000)
+            # --- Always get unique player IP Address ---
+            unique_ip_player = scrape_unique_ips(icontents_frame, username)
 
-            unique_ip_player = []
-            cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-            for i in range(cells.count()):
-                ip = cells.nth(i).inner_text().strip()
-                if (
-                    ip.count(".") == 3
-                    and all(p.isdigit() for p in ip.split("."))
-                    and ip not in unique_ip_player
-                ):
-                    unique_ip_player.append(ip)
-                if len(unique_ip_player) >= 3:
-                    break
-
-            print(f"IPs: {unique_ip_player}")
-
-            # --- Get unique agent IP Address ---
-            icontents_frame.fill("#txtAccountId", agent)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(2000)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(3000)
-
+            # --- Only get Agent/Master/SMA IPs if B2B ---
             unique_ip_agent = []
-            cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-            for i in range(cells.count()):
-                ip = cells.nth(i).inner_text().strip()
-                if (
-                    ip.count(".") == 3
-                    and all(p.isdigit() for p in ip.split("."))
-                    and ip not in unique_ip_agent
-                ):
-                    unique_ip_agent.append(ip)
-                if len(unique_ip_agent) >= 3:
-                    break
-
-            print(f"IPs: {unique_ip_agent}")
-
-            # --- Get unique master IP Address ---
-            icontents_frame.fill("#txtAccountId", master)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(2000)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(3000)
-
             unique_ip_master = []
-            cells = icontents_frame.locator("tbody tr td:nth-child(5)")
-
-            for i in range(cells.count()):
-                ip = cells.nth(i).inner_text().strip()
-                if (
-                    ip.count(".") == 3
-                    and all(p.isdigit() for p in ip.split("."))
-                    and ip not in unique_ip_master
-                ):
-                    unique_ip_master.append(ip)
-                if len(unique_ip_master) >= 3:
-                    break
-
-            print(f"IPs: {unique_ip_master}")
-
-            # --- Get unique sma IP Address ---
-            icontents_frame.fill("#txtAccountId", sma)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(2000)
-            icontents_frame.locator("input.Button[value='Submit']").click()
-            icontents_frame.wait_for_timeout(3000)
-
             unique_ip_sma = []
-            cells = icontents_frame.locator("tbody tr td:nth-child(5)")
 
-            for i in range(cells.count()):
-                ip = cells.nth(i).inner_text().strip()
-                if (
-                    ip.count(".") == 3
-                    and all(p.isdigit() for p in ip.split("."))
-                    and ip not in unique_ip_sma
-                ):
-                    unique_ip_sma.append(ip)
-                if len(unique_ip_sma) >= 3:
-                    break
+            print("Player IPs:", unique_ip_player)
 
-            print(f"IPs: {unique_ip_sma}")
+            if B2B_B2C == "B2B":
+                # --- Get unique agent IP Address ---
+                unique_ip_agent = scrape_unique_ips(icontents_frame, agent)
+                # --- Get unique master IP Address ---
+                unique_ip_master = scrape_unique_ips(icontents_frame, master)
+                # --- Get unique sma IP Address ---
+                unique_ip_sma = scrape_unique_ips(icontents_frame, sma)
+
+                print("Agent IPs:", unique_ip_agent)
+                print("Master IPs:", unique_ip_master)
+                print("SMA IPs:", unique_ip_sma)
 
             print(f"Successfully scraped data for username: {username}")
+
             # --- Save row ---
             rows.append(
                 [
@@ -457,70 +402,65 @@ with sync_playwright() as p:
             edit_btn.click()
 
             # --- Fill the form ---
-            # Currency
+            # --- Currency ---
             watchlist_page.locator("select[name='currency']").select_option(
                 value=currency
             )
 
-            # AGENT/MASTER/SMA
+            # --- AGENT/MASTER/SMA ---
             watchlist_page.fill("#agent", agent)
             watchlist_page.fill("#ma", master)
             watchlist_page.fill("#sma", sma)
 
-            # Total Commission
+            # --- Total Commission ---
             watchlist_page.fill("#current_comm", "0")
             watchlist_page.fill("#last_seven_comm", "0")
 
-            # Player Taking Percentage
+            # --- Player Taking Percentage ---
             watchlist_page.locator("input[name='pt[player]']").fill("0")
             watchlist_page.locator("input[name='pt[agent]']").fill(agent_pt)
             watchlist_page.locator("input[name='pt[ma]']").fill(ma_pt)
             watchlist_page.locator("input[name='pt[sma]']").fill(sma_pt)
 
-            # Players Commission
+            # --- Players Commission ---
             watchlist_page.locator("input[name='comm[player]']").fill(player_comm)
             watchlist_page.locator("input[name='comm[agent]']").fill(agent_comm)
             watchlist_page.locator("input[name='comm[ma]']").fill(ma_comm)
             watchlist_page.locator("input[name='comm[sma]']").fill(sma_comm)
 
-            # Conclusion
+            # --- Conclusion ---
             watchlist_page.fill("#remarks", "None")
             watchlist_page.fill("#crm_log", "None")
 
-            # Check if unique_ip_player list is empty
-            if not unique_ip_player:
-                # Use ip_text (the Last Login IP) if the list is empty
-                ip_player = ip_address if ip_address else ""
-            else:
-                # Otherwise join the IPs from the list
+            # --- Check if unique_ip_player list is empty ---
+            if unique_ip_player and len(unique_ip_player) > 0:
                 ip_player = "\n".join(unique_ip_player)
-            # 3 Unique IP Address of the player
+            else:
+                ip_player = ip_address if ip_address else ""
+
             watchlist_page.locator("textarea[name='ip_address[player]']").fill(
                 ip_player
             )
 
-            # Agent IP
-            ip_agent = "\n".join(unique_ip_agent)
-            watchlist_page.locator("textarea[name='ip_address[agent]']").fill(ip_agent)
+            # --- Only fill Agent/Master/SMA if B2B ---
+            if B2B_B2C == "B2B":
+                # --- Agent IP ---
+                fill_ip_box(watchlist_page, "agent", unique_ip_agent)
+                # --- Master IP ---
+                fill_ip_box(watchlist_page, "ma", unique_ip_master)
+                # --- SMA IP ---
+                fill_ip_box(watchlist_page, "sma", unique_ip_sma)
 
-            # Master IP
-            ip_master = "\n".join(unique_ip_master)
-            watchlist_page.locator("textarea[name='ip_address[ma]']").fill(ip_master)
+            # --- Step 5: Update the record ---
+            # watchlist_page.locator("button:has-text('Update Record')").click()
 
-            # SMA IP
-            ip_sma = "\n".join(unique_ip_sma)
-            watchlist_page.locator("textarea[name='ip_address[sma]']").fill(ip_sma)
-
-            # Step 5: Update the record
-            watchlist_page.locator("button:has-text('Update Record')").click()
-
-            # Time estimate
-            elapse = time.time() - start_time
-            if elapse < 60:
-                print(f"Watchlist updated for {username}, Elapse: {elapse:.1f} seconds")
+            # --- Time track per user ---
+            user_elapsed = time.time() - user_start
+            if user_elapsed < 60:
+                print(f"Watchlist updated for {username}, Time: {user_elapsed:.1f} sec")
             else:
                 print(
-                    f"Watchlist updated for {username}, Elapse: {elapse/60:.2f} minutes"
+                    f"Watchlist updated for {username}, Time: {user_elapsed/60:.2f} mins"
                 )
         except Exception as e:
             print("Error for {username}:", e)
@@ -532,13 +472,10 @@ with sync_playwright() as p:
         writer.writerow(headers)
         writer.writerows(rows)
 
-    # total_time = time.time() - script_start
-    # avg_per_player = elapse / i if i else 0
-    # print(f"Script finished in {total_time / 60:.2f} minutes")
-    # if elapse < 60:
-    #     print(f"Avg/player: {avg_per_player:.1f} sec")
-    # else:
-    #     print(f"Avg/player: {avg_per_player:.2f} mins")
+    total_time = time.time() - script_start
+    avg_per_player = total_time / total_players if total_players else 0
+    print(f"\nScript finished in {total_time / 60:.2f} minutes")
+    print(f"Avg/player: {avg_per_player:.2f} seconds")
     print(f"\nCSV saved as: {OUTPUT_CSV}")
 
     input("Press Enter to close browser...")
