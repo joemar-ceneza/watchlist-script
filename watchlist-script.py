@@ -363,7 +363,7 @@ with sync_playwright() as p:
 
                 if (from && to) {{
                     from.value = "{from_date} 12:00:00 AM";
-                    to.value = "{to_date} 11:59:59 PM";
+                    to.value = "{to_date} 12:00:00 AM";
 
                     from.dispatchEvent(new Event('input', {{ bubbles: true }}));
                     from.dispatchEvent(new Event('change', {{ bubbles: true }}));
