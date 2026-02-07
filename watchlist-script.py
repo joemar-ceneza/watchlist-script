@@ -76,7 +76,7 @@ WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
 WATCHLIST_CURRENCY_RATE = "http://insiderinew.octagonexpress.co/getsearchexchangeRate?monthYear=2026-02&casino_type_id=2"
 
 USERNAMES_FILE = resource_path("usernames.txt")
-OUTPUT_CSV = resource_path("leo_results.csv")
+OUTPUT_CSV = os.path.join(os.path.dirname(sys.argv[0]), "leo_results.csv")
 
 # --- B2B OR B2C ---
 while True:
