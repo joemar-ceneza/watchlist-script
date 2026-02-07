@@ -194,9 +194,10 @@ with sync_playwright() as p:
             leo_page.click("#continue")
             leo_page.wait_for_load_state("networkidle")
     except:
-        print("===================================================================")
-        print("Leo Website Login successful!")
         pass
+
+    print("===================================================================")
+    print("Leo Website Login successful!")
 
     # --- Get menu frame safely ---
     menu_frame = get_frame(leo_page, "menu")
