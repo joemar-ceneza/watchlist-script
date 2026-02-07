@@ -28,6 +28,8 @@ device_id = hashlib.sha256(str(uuid.getnode()).encode()).hexdigest()
 if os.path.exists(DEVICE_FILE):
     saved_id = open(DEVICE_FILE, "r").read()
     if saved_id != device_id:
+        print("Device ID mismatch detected.")
+        input("Press Enter to close browser...")
         sys.exit()
 else:
     open(DEVICE_FILE, "w").write(device_id)
@@ -38,6 +40,8 @@ today = datetime.today().date()
 if os.path.exists(TRACK_FILE):
     last_run = datetime.strptime(open(TRACK_FILE, "r").read(), "%Y-%m-%d").date()
     if today < last_run:
+        print("System time manipulation detected.")
+        input("Press Enter to close browser...")
         sys.exit()
 
 open(TRACK_FILE, "w").write(str(today))
@@ -113,15 +117,6 @@ headers = [
     "7 Days Comm",
 ]
 
-# --- Date format ---
-yesterday = datetime.today() - timedelta(days=1)
-formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
-encoded_date = quote_plus(formatted_date)
-
-# --- Watchlist Date picker ---
-from_date = yesterday.strftime("%m/%d/%Y")
-to_date = today.strftime("%m/%d/%Y")
-
 
 # --- Helper: Safely get frame even after reload ---
 def get_frame(page, name, retries=20):
@@ -159,6 +154,15 @@ def fill_ip_box(page, role, ip_list):
     value = "\n".join(ip_list) if ip_list else ""
     page.locator(f"textarea[name='ip_address[{role}]']").fill(value)
 
+
+# --- Date format ---
+yesterday = datetime.today() - timedelta(days=1)
+formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
+encoded_date = quote_plus(formatted_date)
+
+# --- Watchlist Date picker ---
+from_date = yesterday.strftime("%m/%d/%Y")
+to_date = today.strftime("%m/%d/%Y")
 
 # --- Time Tracker ---
 start_time = time.time()
@@ -220,10 +224,9 @@ with sync_playwright() as p:
     watchlist_page.wait_for_selector("h2:has-text('Good Day')", timeout=5000)
 
     # --- Watchlist Currency Rate ---
-    watchlist_currency = context.new_page()
-    watchlist_currency.goto(WATCHLIST_CURRENCY_RATE)
+    watchlist_page.goto(WATCHLIST_CURRENCY_RATE)
     rates = {}
-    rows_rate = watchlist_currency.locator("table.table tbody tr")
+    rows_rate = watchlist_page.locator("table.table tbody tr")
 
     for i in range(rows_rate.count()):
         row = rows_rate.nth(i)
