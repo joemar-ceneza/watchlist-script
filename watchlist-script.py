@@ -200,19 +200,13 @@ with sync_playwright() as p:
     leo_page.fill("#txtPassword", LEO_PASSWORD)
     leo_page.click("#btnLogin")
 
-    leo_page.wait_for_load_state("networkidle")
-
     # --- Handle Failed Login Attempt Popup ---
     try:
         if leo_page.locator("#tblExchange").is_visible(timeout=5000):
             print("Login Warning Popup Detected — Clicking Continue...")
             leo_page.click("#continue")
-            leo_page.wait_for_load_state("networkidle")
     except:
         pass
-
-    print("===================================================================")
-    print("Leo Website Login successful!")
 
     # --- Get menu frame safely ---
     menu_frame = get_frame(leo_page, "menu")
@@ -222,6 +216,9 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
+    print("===================================================================")
+    print("Leo Website Login successful!")
+
     # --- Log in Watchlist ---
     watchlist_page = context.new_page()
     watchlist_page.goto(WATCHLIST_LOGIN_URL)
@@ -230,9 +227,8 @@ with sync_playwright() as p:
     watchlist_page.fill("#password", WATCHLIST_PASSWORD)
     watchlist_page.click("#btn-login")
 
-    watchlist_page.wait_for_load_state("networkidle")
-    print("Watchlist Website Login successful!")
     watchlist_page.wait_for_selector("h2:has-text('Good Day')", timeout=5000)
+    print("Watchlist Website Login successful!")
 
     # --- Watchlist Currency Rate ---
     watchlist_page.goto(WATCHLIST_CURRENCY_RATE)
