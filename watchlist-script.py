@@ -110,6 +110,10 @@ column_headers = [
 ]
 
 
+# --- Table Data ---
+rows = []
+
+
 # --- Add EXE-Safe Path Loader ---
 def resource_path(relative_path):
     try:
@@ -138,10 +142,6 @@ to_date = today.strftime("%m/%d/%Y")
 # --- Time Tracker ---
 start_time = time.time()
 script_start = time.time()
-
-
-# --- Table Data ---
-rows = []
 
 
 # --- Safely get frame even after reload ---
@@ -204,7 +204,7 @@ with sync_playwright() as p:
 
     # --- Handle Failed Login Attempt Popup ---
     try:
-        if leo_page.locator("#tblExchange").is_visible(timeout=3000):
+        if leo_page.locator("#tblExchange").is_visible(timeout=5000):
             print("Login Warning Popup Detected — Clicking Continue...")
             leo_page.click("#continue")
             leo_page.wait_for_load_state("networkidle")
@@ -362,7 +362,7 @@ with sync_playwright() as p:
 
             # --- Click Login History ---
             itop_frame = get_frame(leo_page, "itop")
-            itop_frame.wait_for_selector("a:has-text('Login History')", timeout=8000)
+            itop_frame.wait_for_selector("a:has-text('Login History')", timeout=5000)
             itop_frame.click("a:has-text('Login History')")
 
             leo_page.wait_for_timeout(1200)
