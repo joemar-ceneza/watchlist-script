@@ -1,28 +1,23 @@
 from playwright.sync_api import sync_playwright
-import csv
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
-import os, sys, uuid, hashlib, subprocess
-from datetime import datetime, timezone
-import time
-import re
+import csv, os, sys, uuid, hashlib, subprocess, time, re
 
-# Only force local browser path when running as EXE
+
+# --- Only force local browser path when running as EXE ---
 if getattr(sys, "frozen", False):
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "./ms-playwright"
+
 
 # --- Secure Storage Path ---
 local_appdata = os.getenv("LOCALAPPDATA") or os.path.expanduser("~\\AppData\\Local")
 BASE_DIR = os.path.join(local_appdata, "SystemCache")
 os.makedirs(BASE_DIR, exist_ok=True)
 
-DEVICE_FILE = os.path.join(BASE_DIR, "sys.lock")
-TRACK_FILE = os.path.join(BASE_DIR, "sys.time")
-
-# --- Settings ---
-EXPIRY_DATE = "2026-03-01"
 
 # --- Machine Lock ---
+DEVICE_FILE = os.path.join(BASE_DIR, "sys.lock")
+TRACK_FILE = os.path.join(BASE_DIR, "sys.time")
 device_id = hashlib.sha256(str(uuid.getnode()).encode()).hexdigest()
 
 if os.path.exists(DEVICE_FILE):
@@ -33,6 +28,7 @@ if os.path.exists(DEVICE_FILE):
         sys.exit()
 else:
     open(DEVICE_FILE, "w").write(device_id)
+
 
 # --- Anti Clock-Tampering (UTC Safe) ---
 today = datetime.today().date()
@@ -46,7 +42,9 @@ if os.path.exists(TRACK_FILE):
 
 open(TRACK_FILE, "w").write(str(today))
 
+
 # --- Expiry Check ---
+EXPIRY_DATE = "2026-03-01"
 expiry = datetime.strptime(EXPIRY_DATE, "%Y-%m-%d").date()
 
 if today >= expiry:
@@ -65,22 +63,11 @@ if today >= expiry:
     sys.exit()
 
 
-# --- Add EXE-Safe Path Loader ---
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
-
 # --- CONFIG ---
 LEO_LOGIN_URL = "http://leo-a01.sbobet.com.tw:8088/Default.aspx"
 WATCHLIST_LOGIN_URL = "http://insiderinew.octagonexpress.co/login"
 WATCHLIST_CURRENCY_RATE = "http://insiderinew.octagonexpress.co/getsearchexchangeRate?monthYear=2026-02&casino_type_id=2"
 
-USERNAMES_FILE = resource_path("usernames.txt")
-OUTPUT_CSV = os.path.join(os.path.dirname(sys.argv[0]), "leo_results.csv")
 
 # --- B2B OR B2C ---
 while True:
@@ -89,18 +76,23 @@ while True:
         break
     print("Invalid input. Please enter only B2B or B2C.")
 
-# --- Leo credentials ---
+
+# --- Leo Credentials ---
 LEO_USERNAME = input("LEO Username: ")
 LEO_PASSWORD = input("LEO Password: ")
 
-# --- Watchlist credentials ---
+
+# --- Watchlist Credentials ---
 WATCHLIST_USERNAME = input("WATCHLIST Username: ")
 WATCHLIST_PASSWORD = input("WATCHLIST Password: ")
 
-# --- Normalize currency codes ---
+
+# --- Normalize Currency Codes ---
 currency_map = {"Pp": "IDR", "TB": "THB"}
 
-headers = [
+
+# --- Table Structure Report Column Header
+column_headers = [
     "Username",
     "Currency",
     "Agent",
@@ -118,7 +110,41 @@ headers = [
 ]
 
 
-# --- Helper: Safely get frame even after reload ---
+# --- Add EXE-Safe Path Loader ---
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
+# --- Path Loader ---
+USERNAMES_FILE = resource_path("usernames.txt")
+OUTPUT_CSV = os.path.join(os.path.dirname(sys.argv[0]), "leo_results.csv")
+
+
+# --- Date format ---
+yesterday = datetime.today() - timedelta(days=1)
+formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
+encoded_date = quote_plus(formatted_date)
+
+
+# --- Watchlist Date picker ---
+from_date = yesterday.strftime("%m/%d/%Y")
+to_date = today.strftime("%m/%d/%Y")
+
+
+# --- Time Tracker ---
+start_time = time.time()
+script_start = time.time()
+
+
+# --- Table Data ---
+rows = []
+
+
+# --- Safely get frame even after reload ---
 def get_frame(page, name, retries=20):
     for _ in range(retries):
         for frame in page.frames:
@@ -154,21 +180,6 @@ def fill_ip_box(page, role, ip_list):
     value = "\n".join(ip_list) if ip_list else ""
     page.locator(f"textarea[name='ip_address[{role}]']").fill(value)
 
-
-# --- Date format ---
-yesterday = datetime.today() - timedelta(days=1)
-formatted_date = yesterday.strftime("%d %b, %Y").lstrip("0")
-encoded_date = quote_plus(formatted_date)
-
-# --- Watchlist Date picker ---
-from_date = yesterday.strftime("%m/%d/%Y")
-to_date = today.strftime("%m/%d/%Y")
-
-# --- Time Tracker ---
-start_time = time.time()
-script_start = time.time()
-
-rows = []
 
 # --- Step 1: Read usernames ---
 with open(USERNAMES_FILE, "r") as f:
@@ -576,12 +587,12 @@ with sync_playwright() as p:
                 )
         except Exception as e:
             print(f"Error for {username}:", e)
-            rows.append([username, "ERROR"] + [""] * (len(headers) - 2))
+            rows.append([username, "ERROR"] + [""] * (len(column_headers) - 2))
 
     # --- Save CSV ---
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(headers)
+        writer.writerow(column_headers)
         writer.writerows(rows)
 
     total_time = time.time() - script_start
