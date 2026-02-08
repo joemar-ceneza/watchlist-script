@@ -150,7 +150,7 @@ def get_frame(page, name, retries=20):
         for frame in page.frames:
             if frame.name == name:
                 return frame
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(500)
     return None
 
 
@@ -265,10 +265,9 @@ with sync_playwright() as p:
             menu_frame.fill("#T1", username)
             menu_frame.click(".Button")
 
-            leo_page.wait_for_timeout(1200)
-
             # --- Get contents frame ---
             contents_frame = get_frame(leo_page, "contents")
+            contents_frame.wait_for_selector("#formShow", timeout=5000)
 
             if not contents_frame:
                 print("contents frame missing")
@@ -302,10 +301,10 @@ with sync_playwright() as p:
 
             # --- Click Detail ---
             menu_frame.click("#detail")
-            leo_page.wait_for_timeout(1200)
 
             # --- Get itop frame ---
             itop_frame = get_frame(leo_page, "itop")
+
             if not itop_frame:
                 print("itop frame not found")
                 continue
@@ -313,10 +312,9 @@ with sync_playwright() as p:
             itop_frame.wait_for_selector("#Setting", timeout=5000)
             itop_frame.click("#Setting")
 
-            leo_page.wait_for_timeout(1200)
-
             # --- Get icontents frame ---
             icontents_frame = get_frame(leo_page, "icontents")
+
             if not icontents_frame:
                 print("icontents frame missing")
                 continue
@@ -326,8 +324,7 @@ with sync_playwright() as p:
                 "td:has-text('Live Casino & Casino Games')", timeout=5000
             )
             icontents_frame.click("td:has-text('Live Casino & Casino Games')")
-
-            leo_page.wait_for_timeout(800)
+            icontents_frame.wait_for_selector(".SectionHead", timeout=5000)
 
             # --- Get Commission ---
             sma_comm = icontents_frame.locator("#LCTextSmaComm").input_value()
@@ -346,25 +343,24 @@ with sync_playwright() as p:
 
             # --- Get banner frame ---
             top_frame = get_frame(leo_page, "banner")
+
             if not top_frame:
                 print("contents frame missing")
                 continue
 
             # --- Click Live Casino ---
-            top_frame.wait_for_selector("a:has-text('Live Casino')")
             top_frame.click("a:has-text('Live Casino')")
 
-            leo_page.wait_for_timeout(1200)
+            leo_page.wait_for_timeout(1000)
 
             # --- Click Login History ---
             itop_frame = get_frame(leo_page, "itop")
             itop_frame.wait_for_selector("a:has-text('Login History')", timeout=5000)
             itop_frame.click("a:has-text('Login History')")
 
-            leo_page.wait_for_timeout(1200)
-
             # --- Checking the Date Picker ---
             icontents_frame = get_frame(leo_page, "icontents")
+            icontents_frame.wait_for_selector("#form1", timeout=5000)
             icontents_frame.wait_for_selector("#dpFrom", timeout=5000)
             icontents_frame.wait_for_selector("#dpTo", timeout=5000)
             icontents_frame.evaluate(
@@ -473,7 +469,6 @@ with sync_playwright() as p:
             print(f"Exchange Rate: {exchange_rate}")
             print(f"Yesterday Commission: {converted_yesterday:,.2f}")
             print(f"Last 7 Days Commission: {converted_last_7_days:,.2f}")
-
             print("===================================================================")
             print(f"Successfully scraped data for username: {username}")
 
@@ -503,7 +498,7 @@ with sync_playwright() as p:
                 f"?business_type={B2B_B2C}&date={encoded_date}"
             )
             watchlist_page.goto(watchlist_url)
-            watchlist_page.wait_for_selector("tr.border-b")
+            watchlist_page.wait_for_selector("tr.border-b", timeout=5000)
 
             # --- Find Edit and Click ---
             edit_btn = watchlist_page.locator(
